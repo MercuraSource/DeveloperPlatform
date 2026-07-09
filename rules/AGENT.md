@@ -13,10 +13,9 @@ Loesung, die reicht.
 
 ## Setup, das du voraussetzt
 
-- **Steuerung:** Claude Code CLI, lokal auf der Maschine des Nutzers (kein VPS noetig).
-- **Git-Host / Erzwingung:** aktuell GitHub (`origin`), Branch-Protection + CI. Ein
-  dokumentierter Umzugspfad auf self-hosted Gitea/Forgejo (EU-VPS) existiert
-  (`docs/migration-to-gitea.md`) — die Regeln sind host-agnostisch.
+- **Steuerung:** Claude Code CLI, lokal auf der Maschine des Nutzers.
+- **Git-Host / Erzwingung:** self-hosted **Gitea/Forgejo auf einem EU-VPS**,
+  Branch-Protection + CI (act_runner). Aufsetzen: `docs/vps-setup.md`.
 - **Laufzeit (wo gebaute Apps laufen): OFFEN.** Noch nicht entschieden. Triff hier keine
   Annahme (kein BaaS/PaaS/Server vorwaehlen); das ist eine spaetere, separate Entscheidung.
 
@@ -40,7 +39,7 @@ Loesung, die reicht.
 - **Kein Direkt-Push oder Merge auf `main`.** Feature-Branch + PR. Merge erst nach
   menschlicher Freigabe (WORKFLOW §4.5). `main` ist geschuetzt.
 - **Kein `--force`, kein `--no-verify`.**
-- **Keine Secrets ins Repo.** Env/Secrets nur außerhalb (`.env` gitignored / Git-Host-Secrets).
+- **Keine Secrets ins Repo.** Env/Secrets nur außerhalb (`.env` gitignored / Gitea-Secrets).
 - **Keine echten personenbezogenen Daten** in Prompts, Tests oder Fixtures. Nur
   synthetische Daten. (Der Cloud-LLM sieht, was du ihm gibst — gib ihm keine PII.)
 - **Deploy ohne gruenen lokalen Test** ist verboten. Erst lokal gruen, dann Push.
@@ -63,9 +62,9 @@ in Code um das Modell herum:
 
 | Regel | Technische Erzwingung |
 |---|---|
-| Kein Direkt-Push/Merge auf `main` | lokal: pre-push-Hook + `.claude`-Hook · server: Branch-Protection |
+| Kein Direkt-Push/Merge auf `main` | lokal: pre-push-Hook + `.claude`-Hook · server: Gitea-Branch-Protection |
 | Kein Merge ohne Review | server: `require approvals >= 1` |
-| Kein Merge ohne gruene Checks | server: Required Status Checks (CI, `.github/workflows/checks.yml`) |
+| Kein Merge ohne gruene Checks | server: Required Status Checks (CI, `.gitea/workflows/checks.yaml`) |
 | Keine Secrets ins Repo | pre-commit + `.claude` deny + gitleaks im CI |
 | Verbotene Kommandos/Pfade | `.claude/hooks/` PreToolUse (Exit 2 = hart geblockt) |
 
@@ -90,7 +89,8 @@ Wahrheit; der andere Branch zieht nach.
 |---|---|
 | Arbeits-Algorithmus | `rules/WORKFLOW.md` |
 | Wie greift die Erzwingung? | `docs/enforcement.md` |
-| Gesamtablauf lokal -> Git-Host -> Deploy | `docs/setup.md` |
+| VPS/Gitea aufsetzen | `docs/vps-setup.md` |
+| Gesamtablauf lokal -> Gitea -> Deploy | `docs/setup.md` |
 | DSGVO-Pflichten | `gdpr/DSGVO-Leitfaden.md` |
 | Status/Tracker | `ROADMAP.md` |
 

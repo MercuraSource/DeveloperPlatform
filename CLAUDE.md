@@ -28,10 +28,11 @@ Verbindliche Quellen, in dieser Reihenfolge:
 - **Erzwingung (hart):** liegt in Code um dich herum und ist unabhängig vom Modell:
   1. Lokal: `.claude/settings.json` (`deny`/`ask`) + PreToolUse-Hooks in `.claude/hooks/`
      blocken verbotene Aktionen *vor* der Ausführung.
-  2. Server: Branch-Protection auf `main` + Required Status Checks (CI) beim Git-Host —
-     kein Merge ohne grüne Checks und menschliche Freigabe.
+  2. Server: Branch-Protection auf `main` + Required Status Checks (CI) auf der
+     **self-hosted Gitea (EU-VPS)** — kein Merge ohne grüne Checks und Freigabe.
 
-Details: `docs/enforcement.md`. Gesamtablauf lokal ↔ Git-Host ↔ Deploy: `docs/setup.md`.
+Details: `docs/enforcement.md`. VPS/Gitea aufsetzen: `docs/vps-setup.md`.
+Gesamtablauf lokal ↔ Gitea ↔ Deploy: `docs/setup.md`.
 
 ## Laufzeit ist offen
 

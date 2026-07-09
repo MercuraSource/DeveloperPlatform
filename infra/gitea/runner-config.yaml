@@ -1,0 +1,27 @@
+# act_runner Konfiguration. Wird im Compose als /config.yaml gemountet (CONFIG_FILE).
+# Wichtig: die 'labels' mappen `runs-on: ...` auf ein Docker-Image — ohne das kann der
+# Runner keine Jobs starten. Gegen aktuelle act_runner-Docs pruefen.
+
+log:
+  level: info
+
+runner:
+  file: .runner
+  capacity: 2            # parallele Jobs
+  timeout: 30m
+  # runs-on -> Image. catthehacker-Images sind GitHub-Actions-kompatibel.
+  labels:
+    - "ubuntu-latest:docker://catthehacker/ubuntu:act-latest"
+    - "ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04"
+
+cache:
+  enabled: true
+
+container:
+  # Job-Container laufen ueber den socket-proxy (DOCKER_HOST im Compose gesetzt).
+  # "-" = act_runner nutzt die DOCKER_HOST-Env, statt einen Host-Socket zu mounten.
+  docker_host: "-"
+  privileged: false
+  options: ""
+  valid_volumes: []
+  force_pull: true

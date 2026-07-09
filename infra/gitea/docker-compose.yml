@@ -1,39 +1,83 @@
-# Gitea + CI-Runner — Enforcement-Rueckgrat fuer den spaeteren Umzug auf einen EU-VPS.
-# NICHT noetig fuer den Start auf GitHub. Siehe docs/migration-to-gitea.md.
-# Image-Tags PINNEN (kein 'latest'). Gegen aktuelle Gitea-Docs pruefen.
+# Gitea + CI-Runner auf dem EU-VPS — GEHAERTET.
+# Kernpunkt: der Runner bekommt NICHT den Host-Docker-Socket, sondern spricht ueber einen
+# read-only socket-proxy mit eingeschraenkter API. Siehe docs/hardening.md.
+# Image-Tags PINNEN (kein 'latest'). Gegen aktuelle Docs pruefen.
 # Start:  docker compose --env-file .env up -d
 
 services:
   gitea:
-    image: gitea/gitea:1.22          # Tag pinnen / gegen Docs pruefen
+    image: gitea/gitea:1.22                  # Tag pinnen / pruefen
     restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
     environment:
       - USER_UID=1000
       - USER_GID=1000
       - GITEA__server__ROOT_URL=${GITEA_ROOT_URL}
       - GITEA__server__SSH_PORT=2222
-      - GITEA__service__DISABLE_REGISTRATION=true    # nur du legst Nutzer an
-      - GITEA__actions__ENABLED=true                 # CI-Gate (Gitea Actions)
+      - GITEA__service__DISABLE_REGISTRATION=true
+      - GITEA__actions__ENABLED=true
     volumes:
       - gitea_data:/data
     ports:
-      # Web-UI nur lokal -> per SSH-Tunnel erreichen: ssh -L 3000:localhost:3000 <vps>
-      - "127.0.0.1:3000:3000"
-      - "2222:22"                                    # git ueber SSH
+      - "127.0.0.1:3000:3000"                # Web-UI nur lokal (SSH-Tunnel)
+      - "2222:22"                            # git ueber SSH
+    networks: [frontend]
+    mem_limit: 1g
+    pids_limit: 400
+
+  # Begrenzter Zugang zur Docker-API fuer den Runner. Nur DIESER Container beruehrt
+  # den Host-Socket (read-only). Alles andere an der API bleibt gesperrt.
+  socketproxy:
+    image: tecnativa/docker-socket-proxy:0.3.0   # Tag pinnen / pruefen
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true
+    environment:
+      # nur was der CI-Runner zum Bauen/Ausfuehren von Jobs braucht:
+      - CONTAINERS=1
+      - IMAGES=1
+      - NETWORKS=1
+      - VOLUMES=1
+      - EXEC=1
+      - INFO=1
+      - POST=1
+      # explizit verboten (Default ist ohnehin 0):
+      - SWARM=0
+      - SECRETS=0
+      - CONFIGS=0
+      - PLUGINS=0
+      - SYSTEM=0
+      - AUTH=0
+      - BUILD=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [dockerapi]                    # NICHT veroeffentlicht, nur intern
+    mem_limit: 128m
+    pids_limit: 100
 
   runner:
-    image: gitea/act_runner:0.2      # Tag pinnen / gegen Docs pruefen
+    image: gitea/act_runner:0.2              # Tag pinnen / pruefen
     restart: unless-stopped
-    depends_on:
-      - gitea
+    security_opt: ["no-new-privileges:true"]
+    depends_on: [gitea, socketproxy]
     environment:
       - GITEA_INSTANCE_URL=${GITEA_INSTANCE_URL}
       - GITEA_RUNNER_REGISTRATION_TOKEN=${RUNNER_TOKEN}
       - GITEA_RUNNER_NAME=vps-runner
+      - DOCKER_HOST=tcp://socketproxy:2375   # statt Host-Socket
+      - CONFIG_FILE=/config.yaml             # Runner-Labels/Capacity (runner-config.yaml)
     volumes:
       - runner_data:/data
-      # Docker-in-Docker fuer Job-Container. Sicherheitsimplikationen beachten (Docs).
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ./runner-config.yaml:/config.yaml:ro
+    networks: [frontend, dockerapi]
+    mem_limit: 1g
+    pids_limit: 400
+
+networks:
+  frontend:
+  dockerapi:
+    internal: true                           # kein Weg nach draußen
 
 volumes:
   gitea_data:

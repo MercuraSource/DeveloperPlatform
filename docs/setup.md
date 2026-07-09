@@ -1,44 +1,43 @@
 # Setup — lokal steuern, server-seitig erzwingen
 
-Der komplette Ablauf: du faehrst Claude Code **lokal**, die harten Regeln liegen beim
-**Git-Host** (GitHub jetzt, Gitea spaeter). Die **Laufzeit** (wo Apps laufen) ist offen.
+Der komplette Ablauf: du faehrst Claude Code **lokal**, die harten Regeln liegen auf der
+self-hosted **Gitea (EU-VPS)**. Die **Laufzeit** (wo Apps laufen) ist offen.
+
+VPS + Gitea aufsetzen und Repo umziehen: `docs/vps-setup.md`.
 
 ## Topologie
 
 ```
-  Dein Rechner (lokal)                         Git-Host (GitHub / spaeter Gitea)
-  +-----------------------------+   git push   +-------------------------------+
-  | VS Code + Claude Code CLI   |  (per SSH)   | Repo + Branch-Protection      |
-  |  - anweisen / lesen         | -----------> |  - PR-Pflicht, Approvals >= 1 |
-  |  - reviewen / freigeben     |              |  - Required Checks (CI)       |
-  |  - .claude deny + Hooks      | <----------- |  - CI: gitleaks + lint/test   |
-  +-----------------------------+   PR/Diff    +-------------------------------+
-                                                          |
-                                                   (nach Merge auf main)
-                                                          v
-                                            Laufzeit / Deploy  ==  OFFEN
-                                            (Nextcloud / BaaS / PaaS - spaeter)
+  Lokal (dein Rechner)                    EU-VPS
+  VS Code + Claude Code CLI   --push-->   Gitea + Branch-Protection + CI (act_runner)
+   - anweisen / lesen         (per SSH)    - PR-Pflicht, Approvals >= 1
+   - reviewen / freigeben     <--PR/Diff   - Required Checks (CI)
+   - .claude deny + Hooks                  - gitleaks + lint/test
+                                                   |
+                                            (nach Merge auf main)
+                                                   v
+                                          Laufzeit / Deploy  ==  OFFEN
 ```
 
 Du greifst nie von Hand auf einen laufenden Server zu. Der Weg von lokal zur echten App
-laeuft immer ueber Git: **(1)** lokal -> Git-Host per `git push`, **(2)** nach Merge auf
+laeuft immer ueber Git: **(1)** lokal -> Gitea per `git push` (SSH), **(2)** nach Merge auf
 `main` traegt ein Deploy-Schritt den Stand zur Laufzeit. Sprung 2 ist die offene Ebene.
 
 ## Voraussetzungen (lokal)
 
 - Claude Code CLI installiert.
 - `python3` (fuer die `.claude`-Hooks), `git`, optional `gitleaks` (lokaler Secret-Scan).
-- Zugang zum Git-Host (GitHub-Login bzw. spaeter SSH-Key fuer Gitea).
+- SSH-Key beim Gitea-Nutzer hinterlegt; `origin` zeigt auf die Gitea (Port 2222).
 
 ## Einmalige Einrichtung
 
-1. Repo lokal klonen.
-2. Lokale git-hooks aktivieren: `bash git-hooks/install.sh`.
-3. `.claude`-Hooks ausfuehrbar machen: `chmod +x .claude/hooks/*.sh`.
-4. Branch-Protection am Git-Host setzen (siehe `docs/enforcement.md`).
-   - GitHub: privates Repo braucht **GitHub Pro**, sonst wird nicht erzwungen.
-5. CI aktivieren: `.github/workflows/checks.yml` liegt bereit; `lint-test` mit echten
-   Befehlen fuellen; als Required Check eintragen.
+1. VPS + Gitea aufsetzen, Repo umziehen -> `docs/vps-setup.md`.
+2. Repo lokal klonen (von Gitea).
+3. Lokale git-hooks aktivieren: `bash git-hooks/install.sh`.
+4. `.claude`-Hooks ausfuehrbar machen: `chmod +x .claude/hooks/*.sh`.
+5. Branch-Protection in Gitea setzen (`docs/enforcement.md`).
+6. CI: `.gitea/workflows/checks.yaml` liegt bereit; `lint-test` mit echten Befehlen
+   fuellen; als Required Check eintragen.
 
 ## Der Arbeitsloop (jede Aufgabe)
 
@@ -46,7 +45,7 @@ laeuft immer ueber Git: **(1)** lokal -> Git-Host per `git push`, **(2)** nach M
 2. Claude Code die Aufgabe geben. Es baut, du liest den Diff, gibst Aktionen frei
    (`.claude` deny/Hooks blocken Verbotenes).
 3. Lokal gruen testen (gegen synthetische Daten).
-4. `git push` des Feature-Branch -> PR am Git-Host.
+4. `git push` des Feature-Branch -> PR in Gitea.
 5. CI laeuft; du reviewst; **Approve**; **Merge auf `main`**.
 6. Deploy zur Laufzeit (offen — siehe unten).
 
@@ -56,7 +55,7 @@ Details des Algorithmus: `rules/WORKFLOW.md`.
 
 Du willst z. B. eine Custom-App, ein Theme oder Config aendern:
 
-1. Das Element liegt als eigenes Repo (Nextcloud-Kern wird nicht editiert - nur
+1. Das Element liegt als eigenes Repo in Gitea (Nextcloud-Kern wird nicht editiert - nur
    `custom_apps/`, Themes, Config).
 2. Lokal ein Nextcloud im Docker mit der App gemountet -> Claude Code editiert, du testest
    im Browser auf `localhost`. Nicht gegen Produktion.
@@ -72,7 +71,8 @@ Sonderfall: existieren Anpassungen nur auf dem Server (von Hand), zuerst in Git 
 
 - **Lokal** (synthetisch): "funktioniert es ueberhaupt".
 - **CI** (ephemer, Fake-Daten): Korrektheit / keine Regression -> Merge-Gate.
-- **Staging** (Prod-Spiegel, KEINE echten Daten): Zusammenspiel, Migrationen.
+- **Staging** (Prod-Spiegel, KEINE echten Daten, bevorzugt per Subdomain): Zusammenspiel,
+  Migrationen.
 - **Production**: nur Deploy + nicht-destruktiver Smoke-Test + Backup/Rollback. Nie
   Testsuite gegen echte Personendaten.
 
