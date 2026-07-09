@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# ERZWINGUNG (lokal, weich): kein Direkt-Push auf geschuetzte Branches.
+# Serverseitig zusaetzlich per Branch-Protection absichern (Hook allein reicht nicht).
+set -euo pipefail
+
+PROTECTED_REGEX='^refs/heads/(main|master)$'
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [[ "$remote_ref" =~ $PROTECTED_REGEX ]]; then
+    echo "FEHLER: Direkt-Push auf '${remote_ref#refs/heads/}' blockiert."
+    echo "  Regel: WORKFLOW 4.5 - Feature-Branch + Review-Gate, dann Merge."
+    exit 1
+  fi
+done
+exit 0

@@ -1,0 +1,43 @@
+name: checks
+
+# Verbindliches Merge-Gate (Required Status Check).
+# In den Branch-Protection-Regeln von `main` als Pflicht-Check eintragen
+# -> kein Merge ohne gruen. Siehe docs/enforcement.md.
+#
+# Hinweis GitHub Free: Branch-Protection wird auf PRIVATEN Repos erst ab
+# GitHub Pro erzwungen. Ohne Pro ist dieser Check sichtbar, aber nicht bindend.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]   # main wird nur ueber PR veraendert
+
+permissions:
+  contents: read
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks (Secrets blocken)
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz | tar xz gitleaks
+          ./gitleaks detect --redact --no-banner --source .
+
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint + Test (pro App anpassen)
+        run: |
+          # Beispiel je nach App-Stack ersetzen:
+          #   npm ci && npm run lint && npm test
+          #   oder: pytest -q  (gegen ephemere Instanz + synthetische Fixtures)
+          echo "TODO: echte Lint/Test-Befehle der App eintragen"
+
+  # Erinnerung: Der Human-Review (WORKFLOW 4.5) wird NICHT hier erzwungen,
+  # sondern ueber Branch-Protection: 'require approvals >= 1'. Siehe docs/enforcement.md.

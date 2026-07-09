@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# ERZWINGUNG (lokal, weich): keine Secrets in Commits, kein .env committen.
+# Lokale Hooks sind mit --no-verify umgehbar -> die harte Absicherung ist CI + Branch-Protection.
+set -euo pipefail
+
+# 1) .env / Secret-Dateien hart blocken (Ausnahme: *.env.example)
+if git diff --cached --name-only | grep -E '(^|/)\.env($|\.)' | grep -vq '\.env\.example$'; then
+  echo "FEHLER: .env-Datei im Commit. Secrets gehoeren NIE ins Repo (rules/AGENT.md)."
+  exit 1
+fi
+
+# 2) Secret-Scan via gitleaks, falls installiert (im CI ohnehin Pflicht)
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks protect --staged --redact --no-banner; then
+    echo "FEHLER: gitleaks hat moegliche Secrets gefunden. Commit blockiert."
+    exit 1
+  fi
+else
+  echo "Hinweis: gitleaks nicht installiert - Secret-Scan nur im CI (empfohlen: lokal installieren)."
+fi
+exit 0

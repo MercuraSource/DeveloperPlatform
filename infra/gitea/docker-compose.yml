@@ -1,0 +1,40 @@
+# Gitea + CI-Runner — Enforcement-Rueckgrat fuer den spaeteren Umzug auf einen EU-VPS.
+# NICHT noetig fuer den Start auf GitHub. Siehe docs/migration-to-gitea.md.
+# Image-Tags PINNEN (kein 'latest'). Gegen aktuelle Gitea-Docs pruefen.
+# Start:  docker compose --env-file .env up -d
+
+services:
+  gitea:
+    image: gitea/gitea:1.22          # Tag pinnen / gegen Docs pruefen
+    restart: unless-stopped
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__server__ROOT_URL=${GITEA_ROOT_URL}
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__service__DISABLE_REGISTRATION=true    # nur du legst Nutzer an
+      - GITEA__actions__ENABLED=true                 # CI-Gate (Gitea Actions)
+    volumes:
+      - gitea_data:/data
+    ports:
+      # Web-UI nur lokal -> per SSH-Tunnel erreichen: ssh -L 3000:localhost:3000 <vps>
+      - "127.0.0.1:3000:3000"
+      - "2222:22"                                    # git ueber SSH
+
+  runner:
+    image: gitea/act_runner:0.2      # Tag pinnen / gegen Docs pruefen
+    restart: unless-stopped
+    depends_on:
+      - gitea
+    environment:
+      - GITEA_INSTANCE_URL=${GITEA_INSTANCE_URL}
+      - GITEA_RUNNER_REGISTRATION_TOKEN=${RUNNER_TOKEN}
+      - GITEA_RUNNER_NAME=vps-runner
+    volumes:
+      - runner_data:/data
+      # Docker-in-Docker fuer Job-Container. Sicherheitsimplikationen beachten (Docs).
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  gitea_data:
+  runner_data:

@@ -1,0 +1,31 @@
+# Gitea-Actions-Aequivalent von .github/workflows/checks.yml.
+# Beim Umzug ablegen als .gitea/workflows/checks.yaml im Repo.
+# In der Gitea-Branch-Protection als Required Check "checks" eintragen.
+# Syntax an GitHub Actions angelehnt; gegen aktuelle Gitea-Docs pruefen.
+
+name: checks
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks (Secrets blocken)
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz | tar xz gitleaks
+          ./gitleaks detect --redact --no-banner --source .
+
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint + Test (pro App anpassen)
+        run: |
+          echo "TODO: echte Lint/Test-Befehle der App eintragen"
